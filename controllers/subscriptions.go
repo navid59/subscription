@@ -53,10 +53,10 @@ func Unsubscribe(c *gin.Context) {
 }
 
 func GetSubscriptionList(c *gin.Context) {
-	// ListSubscription()
-	c.JSON(http.StatusOK, gin.H{
-		"message": "get subscription List - POST",
-	})
+	ListSubscription(c)
+	// c.JSON(http.StatusOK, gin.H{
+	// 	"message": "get subscription List - POST",
+	// })
 }
 
 func GetSubscription(c *gin.Context) {

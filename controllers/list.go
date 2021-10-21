@@ -1,15 +1,25 @@
+/**
+Make a list of all users
+Note : Currently is all the data, without Filter
+
+Todo :
+	- Not able to costumize json (return less than all existan properties in kind),
+		ex. password shouldn't return
+	- Most be filter by MrchanUserID
+*/
 package controllers
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"time"
-
+	// "fmt"
 	"cloud.google.com/go/datastore"
+	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"time"
 )
 
-type SubscriptionDB struct {
+type StrcMember struct {
 	UserName     string    `datastore:"userName"`
 	Password     string    `datastore:"password"`
 	Name         string    `datastore:"name"`
@@ -26,10 +36,10 @@ type SubscriptionDB struct {
 	Flags        string    `datastore:"flags"`
 	CreatedAt    time.Time `datastore:"createdAt"`
 	UpdatedAt    time.Time `datastore:"updatedAt"`
-	id           int64     // The integer ID used in the datastore.
+	// id           int64     // The integer ID used in the datastore.
 }
 
-func ListSubscription() {
+func ListSubscription(c *gin.Context) {
 	ctx := context.Background()
 
 	// Set your Google Cloud Platform project ID.
@@ -42,16 +52,21 @@ func ListSubscription() {
 	}
 	defer client.Close()
 
-	var Subscribers []*SubscriptionDB
+	var members []StrcMember
 	query := datastore.NewQuery("subscribers").Namespace("recurring")
-	keys, err := client.GetAll(ctx, query, &Subscribers)
-	if err != nil {
-		panic(err)
+	if _, err := client.GetAll(ctx, query, &members); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"code": http.StatusUnprocessableEntity, "message": "", "error": err})
+		return
 	}
 
-	// Set the id field on each Task from the corresponding key.
-	for i, key := range keys {
-		Subscribers[i].id = key.ID
-		fmt.Println(Subscribers[i].UserName)
-	}
+	// Temporary - to see the result in a loop
+	// for i, key := range keys {
+	// 	Subscribers[i].id = key.ID
+	// 	fmt.Println(Subscribers[i].UserName)
+	// }
+
+	c.JSON(http.StatusOK, gin.H{
+		"members": members,
+	})
+
 }
