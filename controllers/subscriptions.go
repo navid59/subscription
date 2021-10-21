@@ -4,6 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
+	// "fmt"
+	"context"
+	"log"
+	"cloud.google.com/go/datastore"
 )
 
 type Subscription struct {
@@ -19,6 +23,13 @@ type Subscription struct {
 	StartDate    time.Time `json:"startDate" binding:"required"`
 	EndDate      time.Time `json:"endDate"`
 }
+
+type Subscriber struct {
+	PlanId       string `json:"planId"`
+	UserId       string `json:"UserId" binding:"required"`
+	MrchanUserID string `json:"mrchanUserID"`
+}
+
 
 func SetSubscription(c *gin.Context) {
 	var newSubscription Subscription
@@ -39,10 +50,35 @@ func SetSubscription(c *gin.Context) {
 		return
 	}
 
+	/** 
+		add the new subscriber 
+	*/
+	ctx := context.Background()
+	projectID := "netopia-payments"
+
+	// Creates a client.
+	client, err := datastore.NewClient(ctx, projectID)
+				   
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	newSubscriber := &newSubscription
+	key := datastore.IncompleteKey("subscribers", nil)
+	key.Namespace = "recurring"
+	if _, err := client.Put(ctx, key, newSubscriber); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    "ERROR",
+			"message": "Error durring ADD Data",
+			"details": err,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    http.StatusOK,
-		"message": "subscription ADD - POST",
-		"details": "Ok Temporary",
+		"message": "subscriber registered successfully!",
 	})
 }
 
@@ -59,7 +95,17 @@ func GetSubscriptionList(c *gin.Context) {
 	// })
 }
 
-func GetSubscription(c *gin.Context) {
+func GetSubscriptionStatus(c *gin.Context) {
+	var member Subscriber
+	if err := c.BindJSON(&member); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": "Bad Request Errors",
+			"error":   err,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "get subscription info - POST",
 	})

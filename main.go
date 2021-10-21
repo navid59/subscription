@@ -12,7 +12,7 @@ func main() {
 	r.POST("/subscription", controllers.SetSubscription)
 	r.POST("/subscription/cancel", controllers.Unsubscribe)
 	r.POST("/subscription/list", controllers.GetSubscriptionList)
-	r.POST("/subscription/status", controllers.GetSubscription)
+	r.POST("/subscription/status", controllers.GetSubscriptionStatus)
 	r.HandleMethodNotAllowed = true
 	r.Run(":8080")
 }
