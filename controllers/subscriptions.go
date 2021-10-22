@@ -4,10 +4,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
-	// "fmt"
+	"fmt"
 	"context"
 	"log"
 	"cloud.google.com/go/datastore"
+	"crypto/sha256"
+	"encoding/base64"
 )
 
 type Subscription struct {
@@ -65,13 +67,16 @@ func SetSubscription(c *gin.Context) {
 	defer client.Close()
 
 	newSubscriber := &newSubscription
+	strHash := sha256.Sum256([]byte(newSubscriber.Password))
+	newSubscriber.Password = base64.StdEncoding.EncodeToString(strHash[:])
+	
 	key := datastore.IncompleteKey("subscribers", nil)
 	key.Namespace = "recurring"
 	if _, err := client.Put(ctx, key, newSubscriber); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusOK, gin.H{
 			"code":    "ERROR",
 			"message": "Error durring ADD Data",
-			"details": err,
 		})
 		return
 	}
