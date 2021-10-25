@@ -14,3 +14,10 @@ func Home(c *gin.Context) {
 func PageNotFound(c *gin.Context) {
 	c.JSON(http.StatusNotFound, gin.H{"code": http.StatusNotFound, "message": "Page not found"})
 }
+
+
+func Welcome(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Wellcome to recurring platform, with JWT",
+	})
+}
