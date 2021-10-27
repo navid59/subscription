@@ -36,10 +36,34 @@ type StrcMember struct {
 	Flags        string    `datastore:"flags"`
 	CreatedAt    time.Time `datastore:"createdAt"`
 	UpdatedAt    time.Time `datastore:"updatedAt"`
-	// id           int64     // The integer ID used in the datastore.
+	Id           int64     // The integer ID used in the datastore.
+}
+
+type Merchant struct {
+	MerchantID string `json:"merchantID" binding:"required"`
 }
 
 func ListSubscription(c *gin.Context) {
+
+	var merchant Merchant
+	if err := c.BindJSON(&merchant); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": "Bad Request Errors",
+		})
+		return
+	}
+
+	// Verify Audience
+	if _, ok := IsLicensed(c.Request.Header.Get("token"), merchant.MerchantID); !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
+	// Creates a client.
 	ctx := context.Background()
 
 	// Set your Google Cloud Platform project ID.
@@ -53,17 +77,17 @@ func ListSubscription(c *gin.Context) {
 	defer client.Close()
 
 	var members []StrcMember
-	query := datastore.NewQuery("subscribers").Namespace("recurring")
-	if _, err := client.GetAll(ctx, query, &members); err != nil {
+	query := datastore.NewQuery("subscribers").Namespace("recurring").
+	Filter("MrchanUserID =", merchant.MerchantID)
+
+	keys, err := client.GetAll(ctx, query, &members); 
+	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"code": http.StatusUnprocessableEntity, "message": "", "error": err})
 		return
 	}
-
-	// Temporary - to see the result in a loop
-	// for i, key := range keys {
-	// 	Subscribers[i].id = key.ID
-	// 	fmt.Println(Subscribers[i].UserName)
-	// }
+	for i, key := range keys {
+		members[i].Id = key.ID
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"members": members,

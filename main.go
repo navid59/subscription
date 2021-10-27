@@ -20,6 +20,7 @@ func main() {
 
 	authorized.POST("/subscription", controllers.SetSubscription)
 	authorized.POST("/subscription/list", controllers.GetSubscriptionList)
+	authorized.POST("/subscription/search", controllers.GetSubscriptionSearch)
 	authorized.POST("/subscription/status", controllers.GetSubscriptionStatus)
 	
 	r.POST("/subscription/cancel", controllers.Unsubscribe)

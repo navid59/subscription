@@ -29,8 +29,13 @@ type Subscription struct {
 }
 
 type Subscriber struct {
-	PlanId       string `json:"planId"`
-	UserEmail    string `json:"userEmail"`
+	PlanId       string `json:"planId" binding:"required"`
+	UserEmail    string `json:"userEmail" binding:"required"`
+	MrchanUserID string `json:"mrchanUserID" binding:"required"`
+}
+
+type User struct {
+	UserId    int64 `json:"userId" binding:"required"`
 	MrchanUserID string `json:"mrchanUserID" binding:"required"`
 }
 
@@ -52,6 +57,16 @@ func SetSubscription(c *gin.Context) {
 		})
 		return
 	}
+
+	// Verify Audience
+	if _, ok := IsLicensed(c.Request.Header.Get("token"), newSubscription.MrchanUserID); !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
 
 	/**
 	add the new subscriber
@@ -101,7 +116,7 @@ func GetSubscriptionList(c *gin.Context) {
 	// })
 }
 
-func GetSubscriptionStatus(c *gin.Context) {
+func GetSubscriptionSearch(c *gin.Context) {
 	/* Validate Request Body & asssign to VAR member*/
 	var member Subscriber
 	if err := c.BindJSON(&member); err != nil {
@@ -154,24 +169,66 @@ func GetSubscriptionStatus(c *gin.Context) {
 		}
 	}
 
-	/* Get Example */
-	// subscriberkey := datastore.IDKey("subscribers", 5752521540763648, nil)
-	// subscriberkey.Namespace = "recurring"
-	// entity := &Subscription{}
-	// if err := client.Get(ctx, subscriberkey, entity); err != nil {
-	// 	c.JSON(http.StatusNotFound, gin.H{
-	// 		"code":    http.StatusNotFound,
-	// 		"message": "Data not found",
-	// 	})
-	// 	return
-	// }
 
 	c.JSON(http.StatusOK, gin.H{
 		"members": entitis,
 	})
 }
 
-func GetLastSubscriberInfo() {
-	/* return following info */
-	// "lastTransactionAt" ,  "lastTransactionStatus"
+func GetSubscriptionStatus(c *gin.Context) {
+	/* Validate Request Body & asssign to VAR member*/
+	var user User
+	if err := c.BindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": "Bad Request Errors",
+			"error":   err,
+		})
+		return
+	}
+
+	// Verify Audience
+	if _, ok := IsLicensed(c.Request.Header.Get("token"), user.MrchanUserID); !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
+
+	// Creates a client.
+	ctx := context.Background()
+	projectID := "netopia-payments"
+	client, err := datastore.NewClient(ctx, projectID)
+
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	/* Get User Info */
+	subscriberkey := datastore.IDKey("subscribers", user.UserId, nil)
+	subscriberkey.Namespace = "recurring"
+	entity := &Subscription{}
+	if err := client.Get(ctx, subscriberkey, entity); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    http.StatusNotFound,
+			"message": "Data not found",
+		})
+		return
+	}
+
+	// Verify Audience & Ownership of data
+	if ownership := entity.MrchanUserID; len(ownership) > 0 && ownership != user.MrchanUserID {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"member": entity,
+	})
 }
