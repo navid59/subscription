@@ -78,9 +78,9 @@ func ListSubscription(c *gin.Context) {
 
 	var members []StrcMember
 	query := datastore.NewQuery("subscribers").Namespace("recurring").
-	Filter("MrchanUserID =", merchant.MerchantID)
+		Filter("MrchanUserID =", merchant.MerchantID)
 
-	keys, err := client.GetAll(ctx, query, &members); 
+	keys, err := client.GetAll(ctx, query, &members)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"code": http.StatusUnprocessableEntity, "message": "", "error": err})
 		return

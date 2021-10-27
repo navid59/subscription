@@ -35,7 +35,7 @@ type Subscriber struct {
 }
 
 type User struct {
-	UserId    int64 `json:"userId" binding:"required"`
+	UserId       int64  `json:"userId" binding:"required"`
 	MrchanUserID string `json:"mrchanUserID" binding:"required"`
 }
 
@@ -66,7 +66,6 @@ func SetSubscription(c *gin.Context) {
 		})
 		return
 	}
-
 
 	/**
 	add the new subscriber
@@ -169,7 +168,6 @@ func GetSubscriptionSearch(c *gin.Context) {
 		}
 	}
 
-
 	c.JSON(http.StatusOK, gin.H{
 		"members": entitis,
 	})
@@ -195,7 +193,6 @@ func GetSubscriptionStatus(c *gin.Context) {
 		})
 		return
 	}
-
 
 	// Creates a client.
 	ctx := context.Background()
@@ -227,7 +224,7 @@ func GetSubscriptionStatus(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"member": entity,
 	})
