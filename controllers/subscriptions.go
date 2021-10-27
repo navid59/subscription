@@ -1,15 +1,16 @@
 package controllers
 
 import (
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"time"
-	"fmt"
-	"context"
-	"log"
 	"cloud.google.com/go/datastore"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"google.golang.org/api/iterator"
+	"log"
+	"net/http"
+	"time"
 )
 
 type Subscription struct {
@@ -24,14 +25,14 @@ type Subscription struct {
 	Plan         string    `json:"plan"  binding:"required"`
 	StartDate    time.Time `json:"startDate" binding:"required"`
 	EndDate      time.Time `json:"endDate"`
+	id           *datastore.Key
 }
 
 type Subscriber struct {
 	PlanId       string `json:"planId"`
-	UserId       string `json:"UserId" binding:"required"`
-	MrchanUserID string `json:"mrchanUserID"`
+	UserEmail    string `json:"userEmail"`
+	MrchanUserID string `json:"mrchanUserID" binding:"required"`
 }
-
 
 func SetSubscription(c *gin.Context) {
 	var newSubscription Subscription
@@ -52,15 +53,15 @@ func SetSubscription(c *gin.Context) {
 		return
 	}
 
-	/** 
-		add the new subscriber 
+	/**
+	add the new subscriber
 	*/
 	ctx := context.Background()
 	projectID := "netopia-payments"
 
 	// Creates a client.
 	client, err := datastore.NewClient(ctx, projectID)
-				   
+
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -69,7 +70,7 @@ func SetSubscription(c *gin.Context) {
 	newSubscriber := &newSubscription
 	strHash := sha256.Sum256([]byte(newSubscriber.Password))
 	newSubscriber.Password = base64.StdEncoding.EncodeToString(strHash[:])
-	
+
 	key := datastore.IncompleteKey("subscribers", nil)
 	key.Namespace = "recurring"
 	if _, err := client.Put(ctx, key, newSubscriber); err != nil {
@@ -101,6 +102,7 @@ func GetSubscriptionList(c *gin.Context) {
 }
 
 func GetSubscriptionStatus(c *gin.Context) {
+	/* Validate Request Body & asssign to VAR member*/
 	var member Subscriber
 	if err := c.BindJSON(&member); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -111,7 +113,65 @@ func GetSubscriptionStatus(c *gin.Context) {
 		return
 	}
 
+	// Verify Audience
+	if _, ok := IsLicensed(c.Request.Header.Get("token"), member.MrchanUserID); !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
+	// Creates a client.
+	ctx := context.Background()
+	projectID := "netopia-payments"
+	client, err := datastore.NewClient(ctx, projectID)
+
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	/* Get Example of search */
+	query := datastore.NewQuery("subscribers").Namespace("recurring").
+		Filter("Plan =", member.PlanId).
+		Filter("Email =", member.UserEmail).
+		Filter("MrchanUserID =", member.MrchanUserID)
+
+	var entitis []Subscription
+	it := client.Run(ctx, query)
+	for {
+		var entity Subscription
+		_, err := it.Next(&entity)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Error fetching next task: %v", err)
+		} else {
+			entitis = append(entitis, entity)
+			fmt.Printf("Nume : %q, Prenume:  %q\n", entity.Name, entity.LastName)
+		}
+	}
+
+	/* Get Example */
+	// subscriberkey := datastore.IDKey("subscribers", 5752521540763648, nil)
+	// subscriberkey.Namespace = "recurring"
+	// entity := &Subscription{}
+	// if err := client.Get(ctx, subscriberkey, entity); err != nil {
+	// 	c.JSON(http.StatusNotFound, gin.H{
+	// 		"code":    http.StatusNotFound,
+	// 		"message": "Data not found",
+	// 	})
+	// 	return
+	// }
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "get subscription info - POST",
+		"members": entitis,
 	})
+}
+
+func GetLastSubscriberInfo() {
+	/* return following info */
+	// "lastTransactionAt" ,  "lastTransactionStatus"
 }
