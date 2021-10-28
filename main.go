@@ -22,8 +22,7 @@ func main() {
 	authorized.POST("/subscription/list", controllers.GetSubscriptionList)
 	authorized.POST("/subscription/search", controllers.GetSubscriptionSearch)
 	authorized.POST("/subscription/status", controllers.GetSubscriptionStatus)
-
-	r.POST("/subscription/cancel", controllers.Unsubscribe)
+	authorized.POST("/subscription/cancel", controllers.Unsubscribe)
 
 	r.HandleMethodNotAllowed = true
 	r.Run(":8080")

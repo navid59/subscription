@@ -20,8 +20,7 @@ import (
 )
 
 type StrcMember struct {
-	UserName     string    `datastore:"userName"`
-	Password     string    `datastore:"password"`
+	Id           int64     // The integer ID used in the datastore.
 	Name         string    `datastore:"name"`
 	LastName     string    `datastore:"lastName"`
 	Email        string    `datastore:"email"`
@@ -32,11 +31,10 @@ type StrcMember struct {
 	StartDate    time.Time `datastore:"startDate"`
 	EndDate      time.Time `datastore:"endDate"`
 	PaymentInfo  string    `datastore:"paymentInfo"`
-	Status       string    `datastore:"status"`
+	Status       bool    `datastore:"status"`
 	Flags        string    `datastore:"flags"`
 	CreatedAt    time.Time `datastore:"createdAt"`
-	UpdatedAt    time.Time `datastore:"updatedAt"`
-	Id           int64     // The integer ID used in the datastore.
+	UpdatedAt    string `datastore:"updatedAt"`
 }
 
 type Merchant struct {

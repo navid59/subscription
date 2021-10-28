@@ -3,29 +3,32 @@ package controllers
 import (
 	"cloud.google.com/go/datastore"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/iterator"
 	"log"
 	"net/http"
 	"time"
+	// "crypto/sha256"
+	// "encoding/base64"
 )
 
+
 type Subscription struct {
-	UserName     string    `json:"userName" binding:"required"`
-	Password     string    `json:"password" binding:"required"`
-	Name         string    `json:"name" binding:"required"`
-	LastName     string    `json:"lastName" binding:"required"`
-	Email        string    `json:"email" binding:"required"`
-	Adress       string    `json:"adress"`
-	Tel          string    `json:"tel"`
-	MrchanUserID string    `json:"mrchanUserID" binding:"required"`
-	Plan         string    `json:"plan"  binding:"required"`
-	StartDate    time.Time `json:"startDate" binding:"required"`
-	EndDate      time.Time `json:"endDate"`
 	id           *datastore.Key
+	Name         string    `json:"Name" binding:"required"`
+	LastName     string    `json:"LastName" binding:"required"`
+	Email        string    `json:"Email" binding:"required"`
+	Adress       string    `json:"Adress"`
+	Tel          string    `json:"Tel"`
+	MrchanUserID string    `json:"MrchanUserID" binding:"required"`
+	Plan         string    `json:"Plan"  binding:"required"`
+	StartDate    time.Time `json:"StartDate" binding:"required"`
+	EndDate      time.Time `json:"EndDate"`
+	Status       bool    
+	Flags        string    
+	CreatedAt    time.Time 
+	UpdatedAt    string
 }
 
 type Subscriber struct {
@@ -82,8 +85,16 @@ func SetSubscription(c *gin.Context) {
 	defer client.Close()
 
 	newSubscriber := &newSubscription
-	strHash := sha256.Sum256([]byte(newSubscriber.Password))
-	newSubscriber.Password = base64.StdEncoding.EncodeToString(strHash[:])
+
+	/* To make hash string like password, if there is case*/
+	// strHash := sha256.Sum256([]byte(newSubscriber.Password))
+	// newSubscriber.Password = base64.StdEncoding.EncodeToString(strHash[:])
+
+	// set predefined data
+	newSubscriber.Status = true
+	newSubscriber.Flags = "subscribed"
+	newSubscriber.CreatedAt = time.Now()
+	// newSubscriber.UpdatedAt = ""
 
 	key := datastore.IncompleteKey("subscribers", nil)
 	key.Namespace = "recurring"
@@ -99,12 +110,6 @@ func SetSubscription(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    http.StatusOK,
 		"message": "subscriber registered successfully!",
-	})
-}
-
-func Unsubscribe(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Unsubscribe a Member - POST",
 	})
 }
 
@@ -227,5 +232,85 @@ func GetSubscriptionStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"member": entity,
+	})
+}
+
+func Unsubscribe(c *gin.Context) {
+	/* Validate Request Body & asssign to VAR member*/
+	var user User
+	if err := c.BindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    http.StatusBadRequest,
+			"message": "Bad Request Errors",
+			"error":   err,
+		})
+		return
+	}
+
+	// Verify Audience
+	if _, ok := IsLicensed(c.Request.Header.Get("token"), user.MrchanUserID); !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
+	// Creates a client.
+	ctx := context.Background()
+	projectID := "netopia-payments"
+	client, err := datastore.NewClient(ctx, projectID)
+
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	/* Get User Info */
+	subscriberkey := datastore.IDKey("subscribers", user.UserId, nil)
+	subscriberkey.Namespace = "recurring"
+	entity := &Subscription{}
+	if err := client.Get(ctx, subscriberkey, entity); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    http.StatusNotFound,
+			"message": "Data not found",
+		})
+		return
+	}
+
+	// Verify Audience & Ownership of data
+	if ownership := entity.MrchanUserID; len(ownership) > 0 && ownership != user.MrchanUserID {
+		c.JSON(http.StatusConflict, gin.H{
+			"code":    http.StatusConflict,
+			"message": "Request has conflict with your authion",
+		})
+		return
+	}
+
+	if entity.Status == false {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusNotModified,
+			"message": "Member already is unsubscribed",
+		})
+		return
+	}  
+
+	/* Unscubscribe the Member */
+	entity.Status = false
+	entity.Flags = "unsubscribed"
+	tmpTime := time.Now()
+	entity.UpdatedAt = tmpTime.String()
+
+	if _, err := client.Put(ctx, subscriberkey, entity); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": "Request failed!",
+		})
+	return
+    }
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": "Unsubscribed successfully!",
 	})
 }
